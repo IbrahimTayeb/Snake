@@ -1,209 +1,159 @@
-import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.Point;
-import java.awt.Toolkit;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
 import java.util.ArrayList;
 import java.util.Random;
 
-import javax.swing.JFrame;
-import javax.swing.Timer;
+public class SnakeGame extends JFrame {
 
-public class Snake implements ActionListener, KeyListener {
-  
-  public static Snake snake;
-  
-  public JFrame jframe;
-  
-  public RenderPanel renderPanel;
-  
-  public Timer timer = new Timer(20, this);
-  
-  public ArrayList<Point> snakeParts = new ArrayList<Point>();
-  
-  public static final int UP = 0, DOWN = 1, LEFT = 2, RIGHT = 3, SCALE = 10;
-  
-  public int ticks = 0, direction = DOWN, score, tailLength = 10, time;
-  
-  public Point head, cherry;
-  
-  public Random random;
-  
-  public boolean over = false, paused;
-  
-  public Dimension dim;
-  
-  public Snake() {
-    dim = Toolkit.getDefaultToolkit().getScreenSize();
-    jframe = new JFrame("Snake");
-    jframe.setVisible(true);
-    jframe.setSize(805, 700);
-    jframe.setResizable(false);
-    jframe.setLocation(dim.width / 2 - jframe.getWidth() / 2, dim.height / 2 - jframe.getHeight() / 2);
-    jframe.add(renderPanel = new RenderPanel());
-    jframe.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-    jframe.addKeyListener(this);
-    startGame();
-  }
-  
-  public void startGame() {
-    over = false;
-    paused = false;
-    time = 0;
-    score = 0;
-    tailLength = 14;
-    direction = DOWN;
-    head = new Point(0, -1);
-    random = new Random();
-    snakeParts.clear();
-    cherry = new Point(random.nextInt(79), random.nextInt(66));
-    timer.start();
-  }
-  
-  @Override
-  public void actionPerformed(ActionEvent arg0) {
-    renderPanel.repaint();
-    ticks++;
-    
-    if (ticks % 2 == 0 && head != null && !over && !paused) {
-      time++;
-      
-      snakeParts.add(new Point(head.x, head.y));
-      
-      if (direction == UP) {
-        if (head.y - 1 >= 0 && noTailAt(head.x, head.y - 1)) {
-          head = new Point(head.x, head.y - 1);
-        } else {
-          over = true;
-        }
-      }
-      
-      if (direction == DOWN) {
-        if (head.y + 1 < 67 && noTailAt(head.x, head.y + 1)) {
-	  head = new Point(head.x, head.y + 1);
-	} else {
-	  over = true;
-	}
-      }
-      
-      if (direction == LEFT) {
-        if (head.x - 1 >= 0 && noTailAt(head.x - 1, head.y)) {
-          head = new Point(head.x - 1, head.y);
-        } else {
-          over = true;
-        }
-      }
-      
-      if (direction == RIGHT) {
-        if (head.x + 1 < 80 && noTailAt(head.x + 1, head.y)) {
-          head = new Point(head.x + 1, head.y);
-        } else {
-          over = true;
-        }
-      }
-      
-      if (snakeParts.size() > tailLength) {
-        snakeParts.remove(0);
-      }
-      
-      if (cherry != null) {
-        if (head.equals(cherry)) {
-          score += 10;
-          tailLength++;
-          cherry.setLocation(random.nextInt(79), random.nextInt(66));
-        }
-      }
+    public SnakeGame() {
+        setTitle("Snake Game");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setResizable(false);
+        add(new GamePanel());
+        pack();
+        setLocationRelativeTo(null);
+        setVisible(true);
     }
-  }
-  
-  public boolean noTailAt(int x, int y) {
-    for (Point point : snakeParts) {
-      if (point.equals(new Point(x, y))) {
-        return false;
-      }
+
+    public static void main(String[] args) {
+        new SnakeGame();
     }
-    return true;
-  }
-  
-  public static void main(String[] args) {
-    snake = new Snake();
-  }
-  
-  @Override
-  public void keyPressed(KeyEvent e) {
-    int i = e.getKeyCode();
-    if ((i == KeyEvent.VK_A || i == KeyEvent.VK_LEFT) && direction != RIGHT) {
-      direction = LEFT;
-    }
-    if ((i == KeyEvent.VK_D || i == KeyEvent.VK_RIGHT) && direction != LEFT) {
-      direction = RIGHT;
-    }
-    if ((i == KeyEvent.VK_W || i == KeyEvent.VK_UP) && direction != DOWN) {
-      direction = UP;
-    }
-    if ((i == KeyEvent.VK_S || i == KeyEvent.VK_DOWN) && direction != UP) {
-      direction = DOWN;
-    }
-    if (i == KeyEvent.VK_SPACE) {
-      if (over) {
-        startGame();
-      } else {
-        paused = !paused;
-      }
-    }
-  }
-  
-  @Override
-  public void keyReleased(KeyEvent e) {
-  }
-  
-  @Override
-  public void keyTyped(KeyEvent e) {
-  }
 }
 
-class RenderPanel extends JComponent {
-  
-  private static final long serialVersionUID = 1L;
-  
-  @Override
-  protected void paintComponent(Graphics g) {
-    super.paintComponent(g);
-    
-    Snake snake = Snake.snake;
-    
-    g.setColor(Color.WHITE);
-    g.fillRect(0, 0, 800, 700);
-    
-    g.setColor(Color.BLACK);
-    for (Point point : snake.snakeParts) {
-      g.fillRect(point.x * Snake.SCALE, point.y * Snake.SCALE, Snake.SCALE, Snake.SCALE, Snake.SCALE);
+class GamePanel extends JPanel implements ActionListener, KeyListener {
+
+    private static final int TILE_SIZE = 25;
+    private static final int WIDTH = 600;
+    private static final int HEIGHT = 600;
+    private static final int DELAY = 100;
+
+    private final ArrayList<Point> snake;
+    private Point food;
+    private char direction = 'R'; // U = Up, D = Down, L = Left, R = Right
+    private boolean running = false;
+    private Timer timer;
+    private int score = 0;
+
+    public GamePanel() {
+        setPreferredSize(new Dimension(WIDTH, HEIGHT));
+        setBackground(Color.BLACK);
+        setFocusable(true);
+        addKeyListener(this);
+        snake = new ArrayList<>();
+        startGame();
     }
-    
-    g.fillRect(snake.head.x * Snake.SCALE, snake.head.y * Snake.SCALE,
-        Snake.SCALE, Snake.SCALE);
-    
-    g.setColor(Color.RED);
-    g.fillRect(snake.cherry.x * Snake.SCALE, snake.cherry.y * Snake.SCALE,
-        Snake.SCALE, Snake.SCALE);
-    
-    String string = "Score: " + snake.score + ", Length: " + snake.tailLength + ", Time: " + snake.time / 20;
-    g.setColor(Color.WHITE);
-    g.drawString(string, (int) (getWidth() / 2 - string.length() * 2.5f), 10);
-    
-    string = "Game Over!";
-    
-    if (snake.over) {
-      g.drawString(string, (int) (getWidth() / 2 - string.length() * 2.5f), (int) snake.dim.getHeight() / 4);
+
+    public void startGame() {
+        snake.clear();
+        snake.add(new Point(5, 5));
+        direction = 'R';
+        score = 0;
+        spawnFood();
+        running = true;
+        timer = new Timer(DELAY, this);
+        timer.start();
     }
-    
-    string = "Paused!";
-    
-    if (snake.paused && !snake.over) {
-      g.drawString(string, (int) (getWidth() / 2 - string.length() * 2.5f), (int) snake.dim.getHeight() / 4);
+
+    public void spawnFood() {
+        Random rand = new Random();
+        int x = rand.nextInt(WIDTH / TILE_SIZE);
+        int y = rand.nextInt(HEIGHT / TILE_SIZE);
+        food = new Point(x, y);
     }
-  }
+
+    public void move() {
+        Point head = new Point(snake.get(0));
+        switch (direction) {
+            case 'U': head.y--; break;
+            case 'D': head.y++; break;
+            case 'L': head.x--; break;
+            case 'R': head.x++; break;
+        }
+
+        // Check collision
+        if (head.x < 0 || head.x >= WIDTH / TILE_SIZE || head.y < 0 || head.y >= HEIGHT / TILE_SIZE || snake.contains(head)) {
+            running = false;
+            timer.stop();
+            return;
+        }
+
+        // Eat food
+        if (head.equals(food)) {
+            snake.add(0, head);
+            score++;
+            spawnFood();
+        } else {
+            snake.add(0, head);
+            snake.remove(snake.size() - 1);
+        }
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+
+        // Draw grid (optional)
+        g.setColor(Color.DARK_GRAY);
+        for (int i = 0; i < WIDTH / TILE_SIZE; i++) {
+            g.drawLine(i * TILE_SIZE, 0, i * TILE_SIZE, HEIGHT);
+            g.drawLine(0, i * TILE_SIZE, WIDTH, i * TILE_SIZE);
+        }
+
+        // Draw food
+        g.setColor(Color.RED);
+        g.fillOval(food.x * TILE_SIZE, food.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+
+        // Draw snake
+        for (int i = 0; i < snake.size(); i++) {
+            g.setColor(i == 0 ? Color.GREEN : Color.YELLOW);
+            Point p = snake.get(i);
+            g.fillRect(p.x * TILE_SIZE, p.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        }
+
+        // Draw score
+        g.setColor(Color.WHITE);
+        g.setFont(new Font("Arial", Font.BOLD, 18));
+        g.drawString("Score: " + score, 10, 20);
+
+        // Game Over
+        if (!running) {
+            g.setColor(Color.RED);
+            g.setFont(new Font("Arial", Font.BOLD, 48));
+            g.drawString("Game Over", WIDTH / 2 - 130, HEIGHT / 2);
+        }
+    }
+
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        if (running) {
+            move();
+        }
+        repaint();
+    }
+
+    @Override
+    public void keyPressed(KeyEvent e) {
+        char prev = direction;
+        switch (e.getKeyCode()) {
+            case KeyEvent.VK_UP:
+                if (prev != 'D') direction = 'U';
+                break;
+            case KeyEvent.VK_DOWN:
+                if (prev != 'U') direction = 'D';
+                break;
+            case KeyEvent.VK_LEFT:
+                if (prev != 'R') direction = 'L';
+                break;
+            case KeyEvent.VK_RIGHT:
+                if (prev != 'L') direction = 'R';
+                break;
+        }
+    }
+
+    @Override
+    public void keyReleased(KeyEvent e) { }
+
+    @Override
+    public void keyTyped(KeyEvent e) { }
 }
